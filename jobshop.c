@@ -20,7 +20,7 @@ at jobshop 3*/
 #define STREAM_SERVICE        3	/* Random-number stream for service times. */
 #define MAX_NUM_JOBSHOPS      3 /* Maximum number of jobshops */
 #define MAX_NUM_STATIONS      5	/* Maximum number of stations. */
-#define MAX_NUM_JOB_TYPES     3	/* Maximum number of job types. */
+#define MAX_NUM_JOB_TYPES     3 	/* Maximum number of job types. */
 
 #define FIRST_JOBSHOP         1
 #define SECOND_JOBSHOP        2
@@ -37,6 +37,9 @@ double mean_interarrival, length_simulation, prob_distrib_job_type[26],
   mean_service[MAX_NUM_JOB_TYPES + 1][MAX_NUM_STATIONS + 1];
 FILE *infile, *outfile;
 
+void arrive_jobshop(int is_new_job, int jobshop_number);
+void arrive_final_jobshop(int is_new_job, int jobshop_number);
+
 void arrive()
 {
   int jobshop_number;
@@ -45,7 +48,7 @@ void arrive()
   job_type = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE);
 
   jobshop_number = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE) % 2 + 1;
-  arrive_jobshop(jobshop_number, job_type);
+  arrive_jobshop(1, jobshop_number);
 
 }
 
@@ -70,15 +73,15 @@ void arrive_jobshop(int is_new_job, int jobshop_number)
       transfer[1] = sim_time;
       transfer[2] = job_type;
       transfer[3] = task;
-      list_file(LAST, jobshop_number*5 + station);
-    } else{
+      list_file(LAST, jobshop_number*num_stations + station);
+    } else {
       /* A machine in this station is idle, so start service on the arriving
          job (which has a delay of zero). */
 
-      sampst(0.0, station); /* For station */
-      sampst(0.0, num_stations + job_type);
+      sampst(0.0, station + num_stations*(jobshop_number-1)); /* For station */
+      sampst(0.0, num_stations*MAX_NUM_JOBSHOPS + job_type);
       ++num_machines_busy[jobshop_number][station];
-      timest((double) num_machines_busy[jobshop_number][station], station);
+      timest((double) num_machines_busy[jobshop_number][station], station + num_stations*(jobshop_number-1));
 
       /*
         Schedule a service completion. Note defining attributes beyond the
@@ -112,12 +115,13 @@ void depart_jobshop(int jobshop_number)
     task = transfer[4];
     station = route[job_type][task];
 
-    if(list_size[station]==0){
+    if(list_size[station]==0)
+    {
       /* The queue for this station is empty, so make a machine in this
         station idle. */
 
       --num_machines_busy[jobshop_number][station];
-      timest((double) num_machines_busy[jobshop_number][station], station);
+      timest((double) num_machines_busy[jobshop_number][station], station + num_stations*(jobshop_number-1));
     }
 
     else {
@@ -128,13 +132,13 @@ void depart_jobshop(int jobshop_number)
 
       /* Tally this delay for this station. */
 
-      sampst(sim_time - transfer[1], station);
+      sampst(sim_time - transfer[1], station + num_stations*(jobshop_number-1));
 
       /* Tally this same delay for this job type. */
 
       job_type_queue = transfer[2];
       task_queue = transfer[3];
-      sampst(sim_time - transfer[1], num_stations + job_type_queue);
+      sampst(sim_time - transfer[1], num_stations*MAX_NUM_JOBSHOPS + job_type_queue);
 
       /* Schedule end of service for this job at this station.  Note defining
       attributes beyond the first two for the event record before invoking
@@ -162,7 +166,7 @@ void depart_jobshop(int jobshop_number)
     }
 }
 
-void depart(void)
+void depart_final(void)
 {
   int station, job_type_queue, task_queue;
 
@@ -175,49 +179,48 @@ void depart(void)
   /* Check to see whether the queue for this station is empty. */  
 
   if (list_size[station] == 0)
-    {
+  {
+    /* The queue for this station is empty, so make a machine in this
+        station idle. */
 
-      /* The queue for this station is empty, so make a machine in this
-         station idle. */
-
-      --num_machines_busy[THIRD_JOBSHOP][station];
-      timest ((double) num_machines_busy[THIRD_JOBSHOP][station], station);
-    }
+    --num_machines_busy[THIRD_JOBSHOP][station];
+    timest ((double) num_machines_busy[THIRD_JOBSHOP][station], station + num_stations*(THIRD_JOBSHOP-1));
+  }
 
   else
-    {
+  {
 
-      /* The queue is nonempty, so start service on first job in queue. */
+    /* The queue is nonempty, so start service on first job in queue. */
 
-      list_remove (FIRST, station);
+    list_remove (FIRST, station);
 
-      /* Tally this delay for this station. */
+    /* Tally this delay for this station. */
 
-      sampst (sim_time - transfer[1], station);
+    sampst (sim_time - transfer[1], station + num_stations*(THIRD_JOBSHOP-1));
 
-      /* Tally this same delay for this job type. */
+    /* Tally this same delay for this job type. */
 
-      job_type_queue = transfer[2];
-      task_queue = transfer[3];
-      sampst (sim_time - transfer[1], num_stations + job_type_queue);
+    job_type_queue = transfer[2];
+    task_queue = transfer[3];
+    sampst (sim_time - transfer[1], num_stations*MAX_NUM_JOBSHOPS + job_type_queue);
 
-      /* Schedule end of service for this job at this station.  Note defining
-         attributes beyond the first two for the event record before invoking
-         event_schedule. */
+    /* Schedule end of service for this job at this station.  Note defining
+        attributes beyond the first two for the event record before invoking
+        event_schedule. */
 
-      transfer[3] = job_type_queue;
-      transfer[4] = task_queue;
-      event_schedule (sim_time + erlang (2, mean_service[job_type_queue][task_queue], STREAM_SERVICE), EVENT_DEPARTURE);
-    }
+    transfer[3] = job_type_queue;
+    transfer[4] = task_queue;
+    event_schedule (sim_time + erlang (2, mean_service[job_type_queue][task_queue], STREAM_SERVICE), EVENT_DEPARTURE);
+  }
 
   /* If the current departing job has one or more tasks yet to be done, send
      the job to the next station on its route. */
 
   if (task < num_tasks[job_type])
-    {
-      ++task;
-      arrive ();
-    }
+  {
+    ++task;
+    arrive_final_jobshop(0, THIRD_JOBSHOP);
+  }
 }
 
 void arrive_final_jobshop(int is_new_job, int jobshop_number)
@@ -241,15 +244,15 @@ void arrive_final_jobshop(int is_new_job, int jobshop_number)
     transfer[1] = sim_time;
     transfer[2] = job_type;
     transfer[3] = task;
-    list_file(LAST, jobshop_number*5 + station);
+    list_file(LAST, jobshop_number*num_stations + station);
   } else{
     /* A machine in this station is idle, so start service on the arriving
         job (which has a delay of zero). */
 
-    sampst(0.0, station); /* For station */
-    sampst(0.0, num_stations + job_type);
+    sampst(0.0, station + num_stations*(jobshop_number-1)); /* For station */
+    sampst(0.0, num_stations*MAX_NUM_JOBSHOPS + job_type);
     ++num_machines_busy[jobshop_number][station];
-    timest((double) num_machines_busy[jobshop_number][station], station);
+    timest((double) num_machines_busy[jobshop_number][station], station + num_stations*(jobshop_number-1));
 
     /*
       Schedule a service completion. Note defining attributes beyond the
@@ -274,13 +277,15 @@ void report (void)			/* Report generator function. */
   fprintf (outfile, "\n\n\n\nJob type     Average total delay in queue");
   overall_avg_job_tot_delay = 0.0;
   sum_probs = 0.0;
+
   for (i = 1; i <= num_job_types; ++i)
-    {
-      avg_job_tot_delay = sampst (0.0, -(num_stations + i)) * num_tasks[i];
-      fprintf (outfile, "\n\n%4d%27.3f", i, avg_job_tot_delay);
-      overall_avg_job_tot_delay += (prob_distrib_job_type[i] - sum_probs) * avg_job_tot_delay;
-      sum_probs = prob_distrib_job_type[i];
-    }
+  {
+    avg_job_tot_delay = sampst (0.0, -(num_stations*MAX_NUM_JOBSHOPS + i)) * num_tasks[i];
+    fprintf (outfile, "\n\n%4d%27.3f", i, avg_job_tot_delay);
+    overall_avg_job_tot_delay += (prob_distrib_job_type[i] - sum_probs) * avg_job_tot_delay;
+    sum_probs = prob_distrib_job_type[i];
+  }
+
   fprintf (outfile, "\n\nOverall average job total delay =%10.3f\n", overall_avg_job_tot_delay);
 
   /* Compute the average number in queue, the average utilization, and the
@@ -288,8 +293,11 @@ void report (void)			/* Report generator function. */
 
   fprintf (outfile, "\n\n\n Work      Average number      Average       Average delay");
   fprintf (outfile, "\nstation       in queue       utilization        in queue");
-  for (j = 1; j <= num_stations; ++j)
-    fprintf (outfile, "\n\n%4d%17.3f%17.3f%17.3f", j, filest (j), timest (0.0, -j) / num_machines[j], sampst (0.0, -j));
+  for (i = 1; i <= MAX_NUM_JOBSHOPS; ++i)
+  {
+    for (j = 1; j <= num_stations; ++j)
+      fprintf (outfile, "\n\n%4d%17.3f%17.3f%17.3f", i*MAX_NUM_JOBSHOPS + j, filest (i*MAX_NUM_JOBSHOPS + j), timest (0.0, -(j + num_stations*MAX_NUM_JOBSHOPS)) / num_machines[j], sampst (0.0, -(j + num_stations*MAX_NUM_JOBSHOPS)));
+  } 
 }
 
 /* Main function. */
@@ -394,8 +402,17 @@ int main ()
 	  arrive();
 	  break;
 	case EVENT_DEPARTURE:
-	  depart();
+	  depart_final();
 	  break;
+  case EVENT_DEPARTURE_FIRST_JOBSHOP:
+    depart_jobshop(1);
+    break;
+  case EVENT_DEPARTURE_SECOND_JOBSHOP:
+    depart_jobshop(2);
+    break;
+  case EVENT_ARRIVAL_FINAL_JOBSHOP:
+    arrive_final_jobshop(1, 3);
+    break;
 	case EVENT_END_SIMULATION:
 	  report();
 	  break;
