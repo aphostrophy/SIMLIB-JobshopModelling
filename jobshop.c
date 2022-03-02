@@ -48,61 +48,61 @@ void arrive()
   job_type = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE);
 
   jobshop_number = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE) % 2 + 1;
+  printf("Job Arrived at Jobshop %d\n", jobshop_number);
   arrive_jobshop(1, jobshop_number);
-
 }
 
 void arrive_jobshop(int is_new_job, int jobshop_number)
 {
-    int station;
+  int station;
 
-    if(is_new_job){
-      task = 1;
+  if(is_new_job){
+    task = 1;
+  }
+
+  station = route[job_type][task];
+
+  if(num_machines_busy[jobshop_number][station] == num_machines[station]){
+    /* All machines in this station are busy, so place the arriving job at
+        the end of the appropriate queue. Note that the following data are
+        stored in the record for each job:
+        1. Time of arrival to this station.
+        2. Job type.
+        3. Current task number. */
+
+    transfer[1] = sim_time;
+    transfer[2] = job_type;
+    transfer[3] = task;
+    list_file(LAST, jobshop_number*num_stations + station);
+  } else {
+    /* A machine in this station is idle, so start service on the arriving
+        job (which has a delay of zero). */
+
+    sampst(0.0, station + num_stations*(jobshop_number-1)); /* For station */
+    sampst(0.0, num_stations*MAX_NUM_JOBSHOPS + job_type);
+    ++num_machines_busy[jobshop_number][station];
+    timest((double) num_machines_busy[jobshop_number][station], station + num_stations*(jobshop_number-1));
+
+    /*
+      Schedule a service completion. Note defining attributes beyond the
+      first two for the event record before invoking event_schedule.
+    */
+
+    transfer[3] = job_type;
+    transfer[4] = task;
+
+    switch(jobshop_number){
+        case FIRST_JOBSHOP:
+          event_schedule(sim_time + erlang(2, mean_service[job_type][task], STREAM_SERVICE), EVENT_DEPARTURE_FIRST_JOBSHOP);
+          break;
+        case SECOND_JOBSHOP:
+          event_schedule(sim_time + erlang(2, mean_service[job_type][task], STREAM_SERVICE), EVENT_DEPARTURE_SECOND_JOBSHOP);
+          break;
+        default:
+          fprintf(stdout,"INCORRECT JOBSHOP NUMBER!\n");
+          exit(0);
     }
-
-    station = route[job_type][task];
-
-    if(num_machines_busy[jobshop_number][station] == num_machines[station]){
-      /* All machines in this station are busy, so place the arriving job at
-         the end of the appropriate queue. Note that the following data are
-         stored in the record for each job:
-         1. Time of arrival to this station.
-         2. Job type.
-         3. Current task number. */
-
-      transfer[1] = sim_time;
-      transfer[2] = job_type;
-      transfer[3] = task;
-      list_file(LAST, jobshop_number*num_stations + station);
-    } else {
-      /* A machine in this station is idle, so start service on the arriving
-         job (which has a delay of zero). */
-
-      sampst(0.0, station + num_stations*(jobshop_number-1)); /* For station */
-      sampst(0.0, num_stations*MAX_NUM_JOBSHOPS + job_type);
-      ++num_machines_busy[jobshop_number][station];
-      timest((double) num_machines_busy[jobshop_number][station], station + num_stations*(jobshop_number-1));
-
-      /*
-        Schedule a service completion. Note defining attributes beyond the
-        first two for the event record before invoking event_schedule.
-      */
-
-      transfer[3] = job_type;
-      transfer[4] = task;
-
-      switch(jobshop_number){
-          case FIRST_JOBSHOP:
-            event_schedule(sim_time + erlang(2, mean_service[job_type][task], STREAM_SERVICE), EVENT_DEPARTURE_FIRST_JOBSHOP);
-            break;
-          case SECOND_JOBSHOP:
-            event_schedule(sim_time + erlang(2, mean_service[job_type][task], STREAM_SERVICE), EVENT_DEPARTURE_SECOND_JOBSHOP);
-            break;
-          default:
-            fprintf(stdout,"INCORRECT JOBSHOP NUMBER!\n");
-            exit(0);
-      }
-    }
+  }
 }
 
 void depart_jobshop(int jobshop_number)
@@ -114,6 +114,8 @@ void depart_jobshop(int jobshop_number)
     job_type = transfer[3];
     task = transfer[4];
     station = route[job_type][task];
+
+    printf("Job Departed from Station %d in Jobshop %d\n", station, jobshop_number);
 
     if(list_size[station]==0)
     {
@@ -176,6 +178,8 @@ void depart_final(void)
   task = transfer[4];
   station = route[job_type][task];
 
+  printf("Job Departed from Station %d in Jobshop 3\n", station);
+
   /* Check to see whether the queue for this station is empty. */  
 
   if (list_size[station] == 0)
@@ -232,6 +236,8 @@ void arrive_final_jobshop(int is_new_job, int jobshop_number)
   }
 
   station = route[job_type][task];
+
+  printf("Job Arrived at Jobshop 3\n");
 
   if(num_machines_busy[jobshop_number][station] == num_machines[station]){
     /* All machines in this station are busy, so place the arriving job at
