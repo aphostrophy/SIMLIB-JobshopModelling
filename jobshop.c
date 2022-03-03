@@ -62,6 +62,8 @@ void arrive_jobshop(int is_new_job, int jobshop_number)
 
   station = route[job_type][task];
 
+  fprintf(logfile, "simtime[%.4f] job[%d] arriving for station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
+
   if(num_machines_busy[jobshop_number][station] == num_machines[station]){
     /* All machines in this station are busy, so place the arriving job at
         the end of the appropriate queue. Note that the following data are
@@ -166,6 +168,8 @@ void depart_jobshop(int jobshop_number)
     if(task < num_tasks[job_type]){
       ++task;
       arrive_jobshop(0, jobshop_number);
+    } else{
+      arrive_final_jobshop(1, 3);
     }
 }
 
@@ -179,7 +183,7 @@ void depart_final(void)
   task = transfer[4];
   station = route[job_type][task];
 
-  fprintf(logfile, "simtime[%.4f] job departed from station[%d] in jobshop[3]\n",sim_time, station);
+  fprintf(logfile, "simtime[%.4f] job[%d] departed from station[%d] in jobshop[3]\n",sim_time, job_type, station);
 
   /* Check to see whether the queue for this station is empty. */  
 
@@ -234,11 +238,12 @@ void arrive_final_jobshop(int is_new_job, int jobshop_number)
 
   if(is_new_job){
     task = 1;
+    fprintf(logfile, "simtime[%.4f] new job[%d] arriving for jobshop[%d]\n", sim_time, job_type,jobshop_number);
   }
 
   station = route[job_type][task];
 
-  printf("Job Arrived at Jobshop 3\n");
+  fprintf(logfile, "simtime[%.4f] job[%d] arriving for station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
 
   if(num_machines_busy[jobshop_number][station] == num_machines[station]){
     /* All machines in this station are busy, so place the arriving job at
