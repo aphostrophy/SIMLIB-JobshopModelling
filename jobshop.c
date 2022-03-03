@@ -302,7 +302,7 @@ void report (void)			/* Report generator function. */
   for (i = 1; i <= MAX_NUM_JOBSHOPS; ++i)
   {
     for (j = 1; j <= num_stations; ++j)
-      fprintf (outfile, "\n\n%4d%17.3f%17.3f%17.3f", i*MAX_NUM_JOBSHOPS + j, filest (i*MAX_NUM_JOBSHOPS + j), timest (0.0, -(j + num_stations*MAX_NUM_JOBSHOPS)) / num_machines[j], sampst (0.0, -(j + num_stations*MAX_NUM_JOBSHOPS)));
+      fprintf (outfile, "\n\n%4d%17.3f%17.3f%17.3f", (i-1)*num_stations + j, filest ((i-1)*num_stations + j), timest (0.0, -((i-1)*num_stations + j)) / num_machines[j], sampst (0.0, -((i-1)*num_stations + j)));
   } 
 }
 
