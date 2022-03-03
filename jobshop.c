@@ -35,7 +35,7 @@ int num_stations, num_job_types, i, j, num_machines[MAX_NUM_STATIONS + 1],
   job_type, task;
 double mean_interarrival, length_simulation, prob_distrib_job_type[26],
   mean_service[MAX_NUM_JOB_TYPES + 1][MAX_NUM_STATIONS + 1];
-FILE *infile, *outfile;
+FILE *infile, *outfile, *logfile;
 
 void arrive_jobshop(int is_new_job, int jobshop_number);
 void arrive_final_jobshop(int is_new_job, int jobshop_number);
@@ -48,7 +48,7 @@ void arrive()
   job_type = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE);
 
   jobshop_number = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE) % 2 + 1;
-  printf("Job Arrived at Jobshop %d\n", jobshop_number);
+  fprintf(logfile, "simtime[%.4f] new job arriving for %d\n", sim_time, jobshop_number);
   arrive_jobshop(1, jobshop_number);
 }
 
@@ -99,7 +99,7 @@ void arrive_jobshop(int is_new_job, int jobshop_number)
           event_schedule(sim_time + erlang(2, mean_service[job_type][task], STREAM_SERVICE), EVENT_DEPARTURE_SECOND_JOBSHOP);
           break;
         default:
-          fprintf(stdout,"INCORRECT JOBSHOP NUMBER!\n");
+          fprintf(stderr,"INCORRECT JOBSHOP NUMBER!\n");
           exit(0);
     }
   }
@@ -115,7 +115,7 @@ void depart_jobshop(int jobshop_number)
     task = transfer[4];
     station = route[job_type][task];
 
-    printf("Job Departed from Station %d in Jobshop %d\n", station, jobshop_number);
+    fprintf(logfile, "simtime[%.4f] job departed from station %d in jobshop %d\n", sim_time, station, jobshop_number);
 
     if(list_size[station]==0)
     {
@@ -157,7 +157,7 @@ void depart_jobshop(int jobshop_number)
           event_schedule (sim_time + erlang (2, mean_service[job_type_queue][task_queue], STREAM_SERVICE), EVENT_DEPARTURE_SECOND_JOBSHOP);
           break;
         default:
-          fprintf(stdin, "INVALID JOBSHOP NUMBER");
+          fprintf(stderr, "INVALID JOBSHOP NUMBER");
           exit(0);
       }
     }
@@ -178,7 +178,7 @@ void depart_final(void)
   task = transfer[4];
   station = route[job_type][task];
 
-  printf("Job Departed from Station %d in Jobshop 3\n", station);
+  fprintf(logfile, "simtime[%.4f] job departed from station[%d] in jobshop[3]\n",sim_time, station);
 
   /* Check to see whether the queue for this station is empty. */  
 
@@ -313,6 +313,7 @@ int main ()
 
   infile = fopen ("jobshop.in", "r");
   outfile = fopen ("jobshop.out", "w");
+  logfile = fopen("log.txt", "w");
 
   /* Read input parameters. */
 
