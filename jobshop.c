@@ -26,6 +26,8 @@ at jobshop 3*/
 #define SECOND_JOBSHOP        2
 #define THIRD_JOBSHOP         3
 
+#define UNIFORM_STREAM        8
+
 /* Declare non-simlib global variables. */
 
 int num_stations, num_job_types, i, j, num_machines[MAX_NUM_STATIONS + 1],
@@ -37,18 +39,29 @@ double mean_interarrival, length_simulation, prob_distrib_job_type[26],
   mean_service[MAX_NUM_JOB_TYPES + 1][MAX_NUM_STATIONS + 1];
 FILE *infile, *outfile, *logfile;
 
+int count1 = 0;
+int count2 = 0;
+
 void arrive_jobshop(int is_new_job, int jobshop_number);
 void arrive_final_jobshop(int is_new_job, int jobshop_number);
 
 void arrive()
 {
   int jobshop_number;
+  double random_value;
 
   event_schedule(sim_time + expon(mean_interarrival, STREAM_INTERARRIVAL), EVENT_ARRIVAL);
   job_type = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE);
 
-  jobshop_number = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE) % 2 + 1;
-  fprintf(logfile, "simtime[%.4f] new job[%d] arriving for jobshop[%d]\n", sim_time, job_type,jobshop_number);
+  random_value = uniform(0, 1, UNIFORM_STREAM);
+  if(random_value < 0.5){
+    jobshop_number = 1;
+    count1++;
+  } else{
+    jobshop_number = 2;
+    count2++;
+  }
+  fprintf(logfile, "simtime[%.4f] new job[%d] ARRIVING for jobshop[%d]\n", sim_time, job_type,jobshop_number);
   arrive_jobshop(1, jobshop_number);
 }
 
@@ -62,7 +75,7 @@ void arrive_jobshop(int is_new_job, int jobshop_number)
 
   station = route[job_type][task];
 
-  fprintf(logfile, "simtime[%.4f] job[%d] arriving for station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
+  fprintf(logfile, "simtime[%.4f] job[%d] ARRIVING for station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
 
   if(num_machines_busy[jobshop_number][station] == num_machines[station]){
     /* All machines in this station are busy, so place the arriving job at
@@ -75,14 +88,14 @@ void arrive_jobshop(int is_new_job, int jobshop_number)
     transfer[1] = sim_time;
     transfer[2] = job_type;
     transfer[3] = task;
-    fprintf(logfile,"simtime[%.4f] job[%d] is queued at station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
-    list_file(LAST, jobshop_number*num_stations + station);
+    fprintf(logfile,"simtime[%.4f] job[%d] is QUEUED at station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
+    list_file(LAST, (jobshop_number-1)*num_stations + station);
   } else {
     /* A machine in this station is idle, so start service on the arriving
         job (which has a delay of zero). */
 
     sampst(0.0, station + num_stations*(jobshop_number-1)); /* For station */
-    sampst(0.0, num_stations*MAX_NUM_JOBSHOPS + job_type);
+    sampst(0.0, num_stations*MAX_NUM_JOBSHOPS + job_type); /* For job type. */
     ++num_machines_busy[jobshop_number][station];
     timest((double) num_machines_busy[jobshop_number][station], station + num_stations*(jobshop_number-1));
 
@@ -118,7 +131,7 @@ void depart_jobshop(int jobshop_number)
     task = transfer[4];
     station = route[job_type][task];
 
-    fprintf(logfile, "simtime[%.4f] job[%d] departed from station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
+    fprintf(logfile, "simtime[%.4f] job[%d] DEPARTED from station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
 
     if(list_size[station]==0)
     {
@@ -127,10 +140,13 @@ void depart_jobshop(int jobshop_number)
 
       --num_machines_busy[jobshop_number][station];
       timest((double) num_machines_busy[jobshop_number][station], station + num_stations*(jobshop_number-1));
+
+      fprintf(logfile, "simtime[%.4f] station[%d] in jobshop[%d] is IDLING\n", sim_time, station, jobshop_number);
     }
 
     else {
 
+      fprintf(logfile,"simtime[%.4f] job[%d] is UNQUEUED at station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
       /* The queue is nonempty, so start service on first job in queue. */
 
       list_remove(FIRST,station);
@@ -183,7 +199,7 @@ void depart_final(void)
   task = transfer[4];
   station = route[job_type][task];
 
-  fprintf(logfile, "simtime[%.4f] job[%d] departed from station[%d] in jobshop[3]\n",sim_time, job_type, station);
+  fprintf(logfile, "simtime[%.4f] job[%d] DEPARTED from station[%d] in jobshop[3]\n",sim_time, job_type, station);
 
   /* Check to see whether the queue for this station is empty. */  
 
@@ -194,11 +210,12 @@ void depart_final(void)
 
     --num_machines_busy[THIRD_JOBSHOP][station];
     timest ((double) num_machines_busy[THIRD_JOBSHOP][station], station + num_stations*(THIRD_JOBSHOP-1));
+    fprintf(logfile, "simtime[%.4f] station[%d] in jobshop[3] is IDLING\n", sim_time, station);
   }
 
   else
   {
-
+    fprintf(logfile,"simtime[%.4f] job[%d] is UNQUEUED at station[%d] in jobshop[3]\n", sim_time, job_type, station);
     /* The queue is nonempty, so start service on first job in queue. */
 
     list_remove (FIRST, station);
@@ -238,12 +255,12 @@ void arrive_final_jobshop(int is_new_job, int jobshop_number)
 
   if(is_new_job){
     task = 1;
-    fprintf(logfile, "simtime[%.4f] new job[%d] arriving for jobshop[%d]\n", sim_time, job_type,jobshop_number);
+    fprintf(logfile, "simtime[%.4f] new job[%d] ARRIVING for jobshop[%d]\n", sim_time, job_type,jobshop_number);
   }
 
   station = route[job_type][task];
 
-  fprintf(logfile, "simtime[%.4f] job[%d] arriving for station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
+  fprintf(logfile, "simtime[%.4f] job[%d] ARRIVING for station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
 
   if(num_machines_busy[jobshop_number][station] == num_machines[station]){
     /* All machines in this station are busy, so place the arriving job at
@@ -256,7 +273,7 @@ void arrive_final_jobshop(int is_new_job, int jobshop_number)
     transfer[1] = sim_time;
     transfer[2] = job_type;
     transfer[3] = task;
-    list_file(LAST, jobshop_number*num_stations + station);
+    list_file(LAST, (jobshop_number-1)*num_stations + station);
   } else{
     /* A machine in this station is idle, so start service on the arriving
         job (which has a delay of zero). */
@@ -440,6 +457,8 @@ int main ()
 
   fclose (infile);
   fclose (outfile);
+
+  fprintf(stderr, "Jobshop1 Jobs: %d , Jobshop2 Jobs: %d",count1, count2);
 
   return 0;
 }
