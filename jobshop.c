@@ -48,7 +48,7 @@ void arrive()
   job_type = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE);
 
   jobshop_number = random_integer(prob_distrib_job_type, STREAM_JOB_TYPE) % 2 + 1;
-  fprintf(logfile, "simtime[%.4f] new job arriving for jobshop[%d]\n", sim_time, jobshop_number);
+  fprintf(logfile, "simtime[%.4f] new job[%d] arriving for jobshop[%d]\n", sim_time, job_type,jobshop_number);
   arrive_jobshop(1, jobshop_number);
 }
 
@@ -73,6 +73,7 @@ void arrive_jobshop(int is_new_job, int jobshop_number)
     transfer[1] = sim_time;
     transfer[2] = job_type;
     transfer[3] = task;
+    fprintf(logfile,"simtime[%.4f] job[%d] is queued at station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
     list_file(LAST, jobshop_number*num_stations + station);
   } else {
     /* A machine in this station is idle, so start service on the arriving
@@ -115,7 +116,7 @@ void depart_jobshop(int jobshop_number)
     task = transfer[4];
     station = route[job_type][task];
 
-    fprintf(logfile, "simtime[%.4f] job departed from station[%d] in jobshop[%d]\n", sim_time, station, jobshop_number);
+    fprintf(logfile, "simtime[%.4f] job[%d] departed from station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
 
     if(list_size[station]==0)
     {
