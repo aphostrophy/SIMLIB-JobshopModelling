@@ -133,7 +133,7 @@ void depart_jobshop(int jobshop_number)
 
     fprintf(logfile, "simtime[%.4f] job[%d] DEPARTED from station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
 
-    if(list_size[station]==0)
+    if(list_size[station + num_stations*(jobshop_number-1)]==0)
     {
       /* The queue for this station is empty, so make a machine in this
         station idle. */
@@ -149,7 +149,7 @@ void depart_jobshop(int jobshop_number)
       fprintf(logfile,"simtime[%.4f] job[%d] is UNQUEUED at station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
       /* The queue is nonempty, so start service on first job in queue. */
 
-      list_remove(FIRST,station);
+      list_remove(FIRST,(jobshop_number-1)*num_stations + station);
 
       /* Tally this delay for this station. */
 
@@ -203,7 +203,7 @@ void depart_final(void)
 
   /* Check to see whether the queue for this station is empty. */  
 
-  if (list_size[station] == 0)
+  if (list_size[station + num_stations*(THIRD_JOBSHOP-1)] == 0)
   {
     /* The queue for this station is empty, so make a machine in this
         station idle. */
@@ -218,7 +218,7 @@ void depart_final(void)
     fprintf(logfile,"simtime[%.4f] job[%d] is UNQUEUED at station[%d] in jobshop[3]\n", sim_time, job_type, station);
     /* The queue is nonempty, so start service on first job in queue. */
 
-    list_remove (FIRST, station);
+    list_remove (FIRST, (THIRD_JOBSHOP-1)*num_stations + station);
 
     /* Tally this delay for this station. */
 
@@ -273,6 +273,7 @@ void arrive_final_jobshop(int is_new_job, int jobshop_number)
     transfer[1] = sim_time;
     transfer[2] = job_type;
     transfer[3] = task;
+    fprintf(logfile,"simtime[%.4f] job[%d] is QUEUED at station[%d] in jobshop[%d]\n", sim_time, job_type, station, jobshop_number);
     list_file(LAST, (jobshop_number-1)*num_stations + station);
   } else{
     /* A machine in this station is idle, so start service on the arriving
@@ -457,8 +458,6 @@ int main ()
 
   fclose (infile);
   fclose (outfile);
-
-  fprintf(stderr, "Jobshop1 Jobs: %d , Jobshop2 Jobs: %d",count1, count2);
 
   return 0;
 }
